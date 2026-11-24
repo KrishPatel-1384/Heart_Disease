@@ -2,109 +2,165 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
-import hashlib
-import threading
-from collections import OrderedDict
-from datetime import datetime
-import matplotlib.pyplot as plt
 
-from sklearn.ensemble import RandomForestClassifier
+from pathlib import Path
 from sklearn.impute import SimpleImputer
-
+from sklearn.ensemble import RandomForestClassifier
 
 
 
 st.set_page_config(
     page_title="Heart Disease Prediction",
-   
-    layout="wide"
+    
+    layout="centered"
 )
+
 
 
 
 st.markdown("""
 <style>
 
-.main {
-    background-color: #f5f7fb;
+.stApp {
+    background: linear-gradient(135deg, #edf4fa, #f8fbff);
+    color: #172b42;
 }
 
-h1 {
-    color: #17365d;
-    text-align: center;
+.block-container {
+    max-width: 950px;
+    padding: 30px 22px 50px 22px;
 }
 
-.subtitle {
-    text-align: center;
-    color: #666;
-    font-size: 17px;
+.hero {
+    background: linear-gradient(120deg, #123456, #1676a5);
+    padding: 32px;
+    border-radius: 18px;
+    color: white;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 25px rgba(18, 52, 86, 0.18);
+    animation: fadeIn 0.8s ease;
 }
 
-.stButton button {
+.hero h1 {
+    color: white;
+    font-size: clamp(26px, 4vw, 38px);
+    margin-bottom: 10px;
+}
+
+.hero p {
+    color: #e2f2ff;
+    line-height: 1.6;
+}
+
+.section-heading {
+    color: #123456;
+    font-size: 22px;
+    font-weight: 750;
+    margin-top: 25px;
+    margin-bottom: 8px;
+}
+
+.section-description {
+    color: #53677d;
+    font-size: 14px;
+    margin-bottom: 18px;
+}
+
+label, [data-testid="stWidgetLabel"] {
+    color: #203b55 !important;
+    font-weight: 650 !important;
+}
+
+div[data-baseweb="input"] input,
+div[data-baseweb="select"] > div {
+    border-radius: 10px !important;
+}
+
+div[data-baseweb="input"] input:focus {
+    border-color: #1676a5 !important;
+    box-shadow: 0 0 0 2px rgba(22, 118, 165, 0.15);
+}
+
+div.stButton > button {
     width: 100%;
-    border-radius: 8px;
-    min-height: 45px;
+    min-height: 50px;
+    background: linear-gradient(120deg, #126b9d, #1688b8);
+    color: white;
+    border: none;
+    border-radius: 11px;
+    font-size: 16px;
+    font-weight: 750;
+    transition: all 0.25s ease;
+}
+
+div.stButton > button:hover {
+    background: linear-gradient(120deg, #0c527d, #126b9d);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(18, 107, 157, 0.2);
 }
 
 .result-card {
     background: white;
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
+    padding: 23px;
+    border-radius: 15px;
+    border: 1px solid #d9e6f0;
+    box-shadow: 0 5px 18px rgba(20, 50, 80, 0.07);
+    margin-top: 18px;
+    animation: fadeIn 0.6s ease;
+}
+
+.explanation-card {
+    background: #eef6fc;
+    border-left: 5px solid #1676a5;
+    border-radius: 10px;
+    padding: 18px;
     margin-top: 15px;
+    line-height: 1.7;
 }
 
-.success-result {
-    color: #16803c;
-    font-size: 24px;
-    font-weight: bold;
-}
-
-.warning-result {
-    color: #d62828;
-    font-size: 24px;
-    font-weight: bold;
-}
-
-.confidence-bar {
-    width: 100%;
-    height: 25px;
-    background: #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;
-    margin-bottom: 15px;
-}
-
-.confidence-fill {
-    height: 100%;
-    width: 0%;
-    animation: fillBar 1s ease-out forwards;
-    border-radius: 8px;
-}
-
-@keyframes fillBar {
-    from { width: 0%; }
-    to { width: var(--bar-width); }
+.suggestion-card {
+    background: #fff8e8;
+    border-left: 5px solid #d99a24;
+    padding: 15px;
+    border-radius: 9px;
+    margin: 12px 0;
 }
 
 .footer {
     text-align: center;
-    color: #777;
-    margin-top: 35px;
+    color: #61758a;
+    font-size: 12px;
+    border-top: 1px solid #d9e6f0;
+    padding-top: 20px;
+    margin-top: 40px;
 }
 
-@media screen and (max-width: 768px) {
-    h1 {
-        font-size: 25px;
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media(max-width: 600px) {
+    .block-container {
+        padding: 15px 12px 30px 12px;
     }
 
-    .subtitle {
-        font-size: 14px;
+    .hero {
+        padding: 22px 17px;
+    }
+
+    .section-heading {
+        font-size: 19px;
     }
 
     .result-card {
-        padding: 12px;
+        padding: 16px;
     }
 }
 
@@ -114,108 +170,115 @@ h1 {
 
 
 
-st.markdown(
-    "<h1> Heart Disease Prediction System</h1>",
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<p class="subtitle">Interactive Machine Learning Prediction Dashboard</p>',
-    unsafe_allow_html=True
-)
-
-st.write(
-    "Adjust patient information using the controls below. "
-    "The prediction and graphs update automatically."
-)
-
-
-
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-possible_files = [
-    os.path.join(BASE_DIR, "/home/patel-krish/anaconda3/BrainyBeam/heart.csv"),
-    os.path.join(BASE_DIR, "heart(2).csv")
-]
-
-DATASET_PATH = None
-
-for path in possible_files:
-    if os.path.exists(path):
-        DATASET_PATH = path
-        break
-
-if DATASET_PATH is None:
-    st.error(
-        "Dataset not found. Place heart.csv or heart(2).csv "
-        "in the same folder as this application."
-    )
-    st.stop()
+FEATURE_LABELS = {
+    "age": "Age",
+    "sex": "Sex",
+    "cp": "Chest Pain Type",
+    "trestbps": "Resting Blood Pressure",
+    "chol": "Cholesterol",
+    "fbs": "Fasting Blood Sugar",
+    "restecg": "Resting ECG",
+    "thalach": "Maximum Heart Rate",
+    "exang": "Exercise-Induced Angina",
+    "oldpeak": "ST Depression",
+    "slope": "ST Segment Slope",
+    "ca": "Major Blood Vessels",
+    "thal": "Thalassemia"
+}
 
 
-
-
-@st.cache_data
-def load_dataset(file_path, modified_time):
-
-    data = pd.read_csv(file_path)
-
-    data.columns = data.columns.str.strip().str.lower()
-
-    return data
-
-
-try:
-    dataset = load_dataset(
-        DATASET_PATH,
-        os.path.getmtime(DATASET_PATH)
+def get_label(feature):
+    return FEATURE_LABELS.get(
+        feature,
+        feature.replace("_", " ").title()
     )
 
-except Exception as error:
-    st.error(f"Dataset loading error: {error}")
-    st.stop()
 
-
-if "target" not in dataset.columns:
-    st.error("The dataset must contain a target column.")
-    st.stop()
-
-
-
-X = dataset.drop(columns=["target"])
-y = dataset["target"]
-
-if X.empty or y.nunique() < 2:
-    st.error("The dataset does not contain enough training information.")
-    st.stop()
-
-if y.isna().any():
-    st.error("The target column contains missing values.")
-    st.stop()
-
-if not all(
-    pd.api.types.is_numeric_dtype(X[col])
-    for col in X.columns
-):
-    st.error("All input features must be numerical.")
-    st.stop()
-
-feature_names = list(X.columns)
 
 
 @st.cache_resource
-def train_model(file_path, modified_time):
+def load_model():
 
-    data = pd.read_csv(file_path)
-    data.columns = data.columns.str.strip().str.lower()
+    possible_files = [
+        
+        Path("/home/patel-krish/anaconda3/BrainyBeam/heart.csv"),
+        Path("heart_cleaned.csv")
+    ]
 
-    X_train = data.drop(columns=["target"])
-    y_train = data["target"]
+    dataset_path = None
+
+    for file_path in possible_files:
+        if file_path.exists():
+            dataset_path = file_path
+            break
+
+    if dataset_path is None:
+        raise FileNotFoundError(
+            "Heart disease dataset not found. "
+            "Place heart(2).csv or heart.csv "
+            "in the same folder as app.py."
+        )
+
+    data = pd.read_csv(dataset_path)
+
+    data.columns = (
+        data.columns.astype(str)
+        .str.strip()
+        .str.lower()
+    )
+
+    if "target" not in data.columns:
+        raise ValueError(
+            "Dataset must contain a target column."
+        )
+
+    index_columns = [
+        column for column in data.columns
+        if column == "index" or column.startswith("unnamed:")
+    ]
+
+    data = data.drop(columns=index_columns)
+
+    data = data.drop_duplicates()
+    data = data.dropna(subset=["target"])
+
+    X = data.drop(columns=["target"]).copy()
+
+    y = pd.to_numeric(
+        data["target"],
+        errors="coerce"
+    )
+
+    valid_rows = y.notna()
+
+    X = X.loc[valid_rows].copy()
+    y = y.loc[valid_rows].astype(int)
+
+    X = X.apply(
+        pd.to_numeric,
+        errors="coerce"
+    )
+
+    X = X.dropna(axis=1, how="all")
+
+    if X.empty:
+        raise ValueError(
+            "No valid feature columns were found."
+        )
+
+    if y.nunique() != 2:
+        raise ValueError(
+            "This application requires a binary target."
+        )
+
+    if len(X) < 10:
+        raise ValueError(
+            "Not enough valid records to train the model."
+        )
 
     imputer = SimpleImputer(strategy="median")
 
-    X_train_imputed = imputer.fit_transform(X_train)
+    X_ready = imputer.fit_transform(X)
 
     model = RandomForestClassifier(
         n_estimators=150,
@@ -224,1046 +287,606 @@ def train_model(file_path, modified_time):
         class_weight="balanced"
     )
 
-    model.fit(X_train_imputed, y_train)
+    model.fit(X_ready, y)
 
-    return model, imputer, list(X_train.columns)
+    feature_info = {}
+
+    for column in X.columns:
+
+        values = X[column].dropna()
+
+        feature_info[column] = {
+            "minimum": float(values.min()),
+            "maximum": float(values.max()),
+            "median": float(values.median()),
+            "mode": float(values.mode().iloc[0]),
+            "unique": sorted(values.unique().tolist()),
+            "integer": bool(
+                np.all(
+                    np.isclose(
+                        values,
+                        np.round(values)
+                    )
+                )
+            )
+        }
+
+    return (
+        model,
+        imputer,
+        list(X.columns),
+        feature_info
+    )
+
+
+
+
+def validate_inputs(
+    patient_values,
+    feature_names,
+    feature_info
+):
+
+    errors = []
+    suggestions = []
+
+    for feature in feature_names:
+
+        value = patient_values.get(feature)
+        info = feature_info[feature]
+
+        label = get_label(feature)
+
+        try:
+            numeric_value = float(value)
+
+        except (TypeError, ValueError):
+
+            errors.append(
+                f"{label}: Please enter a valid number."
+            )
+
+            suggestions.append(
+                f"Suggested value: {info['median']:.2f}"
+            )
+
+            continue
+
+        if not np.isfinite(numeric_value):
+
+            errors.append(
+                f"{label}: Infinite or invalid values are not allowed."
+            )
+
+            suggestions.append(
+                f"Try {info['median']:.2f} instead."
+            )
+
+            continue
+
+        minimum = info["minimum"]
+        maximum = info["maximum"]
+
+        if numeric_value < minimum or numeric_value > maximum:
+
+            errors.append(
+                f"{label}: Value must be between "
+                f"{minimum:g} and {maximum:g}."
+            )
+
+            suggestions.append(
+                f"Suggested value based on dataset: "
+                f"{info['median']:.2f}"
+            )
+
+            continue
+
+        unique_values = info["unique"]
+
+        if len(unique_values) <= 10:
+
+            if not any(
+                np.isclose(numeric_value, allowed)
+                for allowed in unique_values
+            ):
+
+                errors.append(
+                    f"{label}: Invalid category selected."
+                )
+
+                suggestions.append(
+                    f"Allowed values: {unique_values}"
+                )
+
+        if info["integer"]:
+
+            if not numeric_value.is_integer():
+
+                errors.append(
+                    f"{label}: Please enter a whole number."
+                )
+
+                suggestions.append(
+                    f"Suggested value: "
+                    f"{round(info['median'])}"
+                )
+
+    return errors, suggestions
+
+
+
+def generate_explanation(
+    prediction,
+    confidence,
+    feature_effects
+):
+
+    if confidence >= 80:
+
+        confidence_text = (
+            "The model has relatively high confidence "
+            "in this prediction."
+        )
+
+    elif confidence >= 60:
+
+        confidence_text = (
+            "The model has moderate confidence. "
+            "The prediction should be interpreted carefully."
+        )
+
+    else:
+
+        confidence_text = (
+            "The model has low confidence. "
+            "Its prediction is uncertain and should not "
+            "be treated as a reliable conclusion."
+        )
+
+    if prediction == 1:
+
+        prediction_text = (
+            "The model predicts the positive class, "
+            "which represents heart disease in this dataset."
+        )
+
+    else:
+
+        prediction_text = (
+            "The model predicts the negative class, "
+            "which represents no heart disease in this dataset."
+        )
+
+    explanation = (
+        prediction_text + " " + confidence_text
+    )
+
+    if feature_effects:
+
+        explanation += (
+            "\n\nThe following features had the largest "
+            "estimated effects on the model's positive-class "
+            "probability:"
+        )
+
+    return explanation
+
+
+
+
+def calculate_feature_effects(
+    model,
+    input_df,
+    imputer,
+    feature_names,
+    feature_info
+):
+
+    baseline_input = imputer.transform(input_df)
+
+    baseline_probability = model.predict_proba(
+        baseline_input
+    )[0]
+
+    positive_index = list(model.classes_).index(1)
+
+    original_probability = float(
+        baseline_probability[positive_index]
+    )
+
+    effects = []
+
+    for feature in feature_names:
+
+        changed_df = input_df.copy()
+
+        info = feature_info[feature]
+
+        if len(info["unique"]) <= 10:
+
+            replacement = info["mode"]
+
+        else:
+
+            replacement = info["median"]
+
+        changed_df.loc[0, feature] = replacement
+
+        changed_ready = imputer.transform(changed_df)
+
+        changed_probability = model.predict_proba(
+            changed_ready
+        )[0][positive_index]
+
+        effect = (
+            original_probability -
+            float(changed_probability)
+        )
+
+        effects.append({
+            "feature": get_label(feature),
+            "effect": effect,
+            "replacement": replacement
+        })
+
+    effects.sort(
+        key=lambda item: abs(item["effect"]),
+        reverse=True
+    )
+
+    return effects[:5]
+
+
+
+st.markdown("""
+<div class="hero">
+
+    
+</div>
+""", unsafe_allow_html=True)
+
 
 
 try:
-    model, imputer, feature_names = train_model(
-        DATASET_PATH,
-        os.path.getmtime(DATASET_PATH)
+
+    model, imputer, feature_names, feature_info = load_model()
+
+    st.success(
+        "Heart disease prediction model loaded successfully."
     )
 
-    st.success("Prediction model is ready.")
-
 except Exception as error:
-    st.error(f"Model training error: {error}")
+
+    st.error(
+        f"Unable to load the model: {error}"
+    )
+
+    st.info(
+        "Check the dataset filename and make sure "
+        "the CSV file is in the same folder as app.py."
+    )
+
     st.stop()
 
 
 
-class PredictionCache:
-
-    def __init__(self, max_size=100):
-
-        self.cache = OrderedDict()
-        self.max_size = max_size
-
-        self.lock = threading.RLock()
-
-        self.hits = 0
-        self.misses = 0
-
-    def get_or_compute(self, key, calculation):
-
-        with self.lock:
-
-            if key in self.cache:
-
-                self.hits += 1
-                self.cache.move_to_end(key)
-
-                return self.cache[key], True
-
-            self.misses += 1
-
-        result = calculation()
-
-        with self.lock:
-
-            if key in self.cache:
-
-                self.cache.move_to_end(key)
-
-                return self.cache[key], True
-
-            self.cache[key] = result
-
-            if len(self.cache) > self.max_size:
-                self.cache.popitem(last=False)
-
-        return result, False
-
-    def statistics(self):
-
-        with self.lock:
-
-            return {
-                "hits": self.hits,
-                "misses": self.misses,
-                "size": len(self.cache)
-            }
-
-
-@st.cache_resource
-def get_prediction_cache():
-
-    return PredictionCache(max_size=100)
-
-
-prediction_cache = get_prediction_cache()
-
-
-
-
-categorical_features = [
-    "sex",
-    "cp",
-    "fbs",
-    "restecg",
-    "exang",
-    "slope",
-    "ca",
-    "thal"
-]
-
-continuous_features = [
-    "age",
-    "trestbps",
-    "chol",
-    "thalach",
-    "oldpeak"
-]
-
-
-
-
-st.markdown("---")
-st.markdown("##  Patient Information")
-
-st.caption(
-    "Move the sliders or change dropdown selections. "
-    "Predictions will update automatically."
+st.markdown(
+    '<div class="section-heading">Patient Information</div>',
+    unsafe_allow_html=True
 )
 
-user_values = {}
-validation_errors = []
+st.markdown(
+    '<div class="section-description">'
+    'Complete all the patient information fields. '
+    'The suggested input ranges are based on your dataset.'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+patient_values = {}
 
 for feature in feature_names:
 
-    column_data = pd.to_numeric(
-        dataset[feature],
-        errors="coerce"
-    ).dropna()
+    info = feature_info[feature]
 
-    if column_data.empty:
-        validation_errors.append(
-            f"No valid dataset values for {feature}."
+    label = get_label(feature)
+
+    unique_values = info["unique"]
+
+    if len(unique_values) <= 10:
+
+        options = unique_values
+
+        default_value = info["mode"]
+
+        if default_value not in options:
+            default_value = options[0]
+
+        patient_values[feature] = st.selectbox(
+            label,
+            options=options,
+            index=options.index(default_value),
+            key=f"input_{feature}"
         )
-        continue
 
-    minimum = float(column_data.min())
-    maximum = float(column_data.max())
-    median_value = float(column_data.median())
+    else:
 
+        minimum = info["minimum"]
+        maximum = info["maximum"]
+        default_value = info["median"]
 
+        if info["integer"]:
 
-    if feature in categorical_features:
-
-        available_values = sorted(
-            column_data.unique().tolist()
-        )
-
-        if feature == "sex":
-
-            selected_value = st.selectbox(
-                "Sex",
-                available_values,
-                format_func=lambda value: (
-                    "Female" if value == 0
-                    else "Male" if value == 1
-                    else str(value)
-                ),
+            patient_values[feature] = st.number_input(
+                label,
+                min_value=int(np.ceil(minimum)),
+                max_value=int(np.floor(maximum)),
+                value=int(round(default_value)),
+                step=1,
                 key=f"input_{feature}"
             )
 
         else:
 
-            selected_value = st.selectbox(
-                f"{feature.upper()}",
-                available_values,
-                key=f"input_{feature}"
-            )
-
-        user_values[feature] = float(selected_value)
-
-
-
-    elif feature in continuous_features:
-
-        if minimum < maximum:
-
-            selected_value = st.slider(
-                f"{feature.upper()}",
+            patient_values[feature] = st.number_input(
+                label,
                 min_value=float(minimum),
                 max_value=float(maximum),
-                value=float(
-                    min(max(median_value, minimum), maximum)
-                ),
+                value=float(default_value),
                 step=0.1,
-                key=f"input_{feature}",
-                help=(
-                    f"Allowed range: {minimum:g} to {maximum:g}. "
-                    "Decimal values are accepted."
-                )
-            )
-
-        else:
-
-            selected_value = st.number_input(
-                f"{feature.upper()}",
-                value=float(median_value),
-                step=0.1,
+                format="%.2f",
                 key=f"input_{feature}"
             )
-
-        user_values[feature] = float(selected_value)
-
-
-
-    else:
-
-        if minimum < maximum:
-
-            selected_value = st.slider(
-                f"{feature.upper()}",
-                min_value=float(minimum),
-                max_value=float(maximum),
-                value=float(median_value),
-                step=0.1,
-                key=f"input_{feature}"
-            )
-
-        else:
-
-            selected_value = st.number_input(
-                f"{feature.upper()}",
-                value=float(median_value),
-                step=0.1,
-                key=f"input_{feature}"
-            )
-
-        user_values[feature] = float(selected_value)
-
-
-
-st.markdown("---")
-st.markdown("##  Patient Input Visualization")
-
-if len(user_values) == len(feature_names):
-
-    profile_data = []
-
-    for feature in feature_names:
-
-        column_data = pd.to_numeric(
-            dataset[feature],
-            errors="coerce"
-        ).dropna()
-
-        minimum = float(column_data.min())
-        maximum = float(column_data.max())
-
-        if maximum > minimum:
-
-            normalized_value = (
-                (user_values[feature] - minimum)
-                / (maximum - minimum)
-            ) * 100
-
-        else:
-            normalized_value = 0
-
-        profile_data.append({
-            "Feature": feature,
-            "Relative position (%)": normalized_value
-        })
-
-    profile_df = pd.DataFrame(profile_data)
-
-    fig, ax = plt.subplots(figsize=(10, 5))
-
-    ax.barh(
-        profile_df["Feature"],
-        profile_df["Relative position (%)"]
-    )
-
-    ax.set_xlim(0, 100)
-    ax.set_xlabel("Position within dataset range (%)")
-    ax.set_title("Patient Input Profile")
-
-    plt.tight_layout()
-
-    st.pyplot(fig)
-    plt.close(fig)
-
-    st.caption(
-        "This graph shows each numerical input's position "
-        "within its observed dataset range. It is not a health-risk score."
-    )
-
-
-
-
-if len(user_values) == len(feature_names):
-
-    input_data = pd.DataFrame(
-        [[user_values[col] for col in feature_names]],
-        columns=feature_names
-    )
-
-    try:
-
-        input_imputed = imputer.transform(input_data)
-
-        input_signature = tuple(
-            (feature, float(user_values[feature]))
-            for feature in feature_names
-        )
-
-        cache_key = (
-            DATASET_PATH,
-            os.path.getmtime(DATASET_PATH),
-            input_signature
-        )
-
-        def calculate_prediction():
-
-            prediction = model.predict(input_imputed)[0]
-
-            raw_probabilities = model.predict_proba(
-                input_imputed
-            )[0]
-
-            total = float(sum(raw_probabilities))
-
-            if total <= 0:
-                raise ValueError("Invalid probability distribution.")
-
-            normalized_probabilities = [
-                float(value / total)
-                for value in raw_probabilities
-            ]
-
-            return {
-                "prediction": prediction,
-                "probabilities": normalized_probabilities,
-                "classes": model.classes_.tolist()
-            }
-
-        result, cache_hit = prediction_cache.get_or_compute(
-            cache_key,
-            calculate_prediction
-        )
-
-        st.session_state["live_prediction"] = result
-        st.session_state["live_signature"] = input_signature
-
-        if cache_hit:
-            st.caption(" Prediction retrieved from cache.")
-        else:
-            st.caption(" Prediction calculated and cached.")
-
-    except Exception as error:
-
-        st.error(f"Prediction error: {error}")
-        result = None
-
-else:
-
-    result = None
-    st.warning("Please provide all required patient inputs.")
-
-
-
-
-if result is not None:
-
-    prediction = result["prediction"]
-    probabilities = result["probabilities"]
-    classes = result["classes"]
-
-    st.markdown("---")
-    st.markdown("##  Live Prediction Result")
-
-    if prediction == 1:
-
-        st.markdown(
-            '<div class="result-card">'
-            '<div class="warning-result">'
-            ' Heart Disease Detected'
-            '</div></div>',
-            unsafe_allow_html=True
-        )
-
-    else:
-
-        st.markdown(
-            '<div class="result-card">'
-            '<div class="success-result">'
-            ' No Heart Disease Detected'
-            '</div></div>',
-            unsafe_allow_html=True
-        )
-
-    probability_data = {}
-
-    for class_value, probability in zip(classes, probabilities):
-
-        probability_data[class_value] = probability * 100
-
-    confidence = probability_data[prediction]
-
-    st.metric(
-        "Predicted Class Confidence",
-        f"{confidence:.2f}%"
-    )
-
- 
-    st.markdown("### Adjust Confidence Threshold")
-
-    threshold = st.slider(
-        "Confidence threshold",
-        min_value=0,
-        max_value=100,
-        value=50,
-        step=5,
-        key="confidence_threshold"
-    )
-
-
-
-    st.markdown("###  Live Probability Distribution")
-
-    chart_labels = [
-        (
-            "No Heart Disease"
-            if value == 0
-            else "Heart Disease"
-            if value == 1
-            else str(value)
-        )
-        for value in classes
-    ]
-
-    chart_values = [
-        value * 100
-        for value in probabilities
-    ]
-
-    fig, ax = plt.subplots(figsize=(8, 4))
-
-    bars = ax.bar(
-        chart_labels,
-        chart_values
-    )
-
-    ax.set_ylim(0, 100)
-    ax.set_ylabel("Probability (%)")
-    ax.set_title("Model Prediction Confidence")
-
-    ax.axhline(
-        y=threshold,
-        linestyle="--",
-        label=f"Threshold: {threshold}%"
-    )
-
-    ax.legend()
-
-    for bar, value in zip(bars, chart_values):
-
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 1,
-            f"{value:.2f}%",
-            ha="center"
-        )
-
-    plt.tight_layout()
-
-    st.pyplot(fig)
-    plt.close(fig)
-
-
-
-    st.markdown("### Confidence Details")
-
-    for class_value, probability in probability_data.items():
-
-        percentage = max(0, min(100, probability))
-
-        label = (
-            "No Heart Disease"
-            if class_value == 0
-            else "Heart Disease"
-            if class_value == 1
-            else str(class_value)
-        )
-
-        if percentage >= threshold:
-            color = "#16a34a"
-            status = "Above threshold"
-        else:
-            color = "#9ca3af"
-            status = "Below threshold"
-
-        st.write(
-            f"**{label}: {percentage:.2f}%** - {status}"
-        )
-
-        st.markdown(
-            f"""
-            <div class="confidence-bar">
-                <div class="confidence-fill"
-                     style="
-                     --bar-width: {percentage}%;
-                     background-color: {color};
-                     ">
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-    probability_table = pd.DataFrame({
-        "Class": chart_labels,
-        "Probability (%)": [
-            round(value, 2)
-            for value in chart_values
-        ]
-    })
-
-    st.markdown("### Probability Table")
-
-    st.dataframe(
-        probability_table,
-        use_container_width=True,
-        hide_index=True
-    )
-
-
-
-st.markdown("---")
-st.markdown("## Prediction Cache Performance")
-
-statistics = prediction_cache.statistics()
-
-st.metric("Cache Hits", statistics["hits"])
-st.metric("Cache Misses", statistics["misses"])
-st.metric("Stored Predictions", statistics["size"])
-
-
-
-
-st.markdown("---")
-st.markdown("## 🔍 Model Interpretability - Feature Contributions")
-
-st.write(
-    "Explore how individual patient features influence the "
-    "model's predicted probability of heart disease."
-)
-
-st.info(
-    "These are approximate, permutation-based SHAP-style "
-    "contributions calculated manually. They explain the model, "
-    "not the patient's actual medical condition."
-)
-
-
-
-def calculate_manual_shap(
-    model,
-    imputer,
-    background_data,
-    patient_data,
-    feature_names,
-    number_of_permutations=15,
-    number_of_background_rows=8
-):
-
-    feature_count = len(feature_names)
-
-    background_sample = background_data.sample(
-        n=min(number_of_background_rows, len(background_data)),
-        random_state=42
-    )
-
-    rng = np.random.default_rng(42)
-
-    all_states = []
-    all_orders = []
-
-    for _, background_row in background_sample.iterrows():
-
-        original_row = background_row[feature_names].to_numpy(
-            dtype=float
-        )
-
-        patient_row = patient_data[feature_names].iloc[0].to_numpy(
-            dtype=float
-        )
-
-        for _ in range(number_of_permutations):
-
-            order = rng.permutation(feature_count)
-
-            current_row = original_row.copy()
-
-            trajectory = [current_row.copy()]
-
-            for feature_index in order:
-
-                current_row[feature_index] = patient_row[feature_index]
-
-                trajectory.append(current_row.copy())
-
-            all_states.extend(trajectory)
-            all_orders.append(order)
-
-    states_df = pd.DataFrame(
-        all_states,
-        columns=feature_names
-    )
-
-    states_imputed = imputer.transform(states_df)
-
-    model_classes = list(model.classes_)
-
-    if 1 in model_classes:
-        target_class = 1
-    else:
-        target_class = model_classes[-1]
-
-    target_index = model_classes.index(target_class)
-
-    all_probabilities = model.predict_proba(
-        states_imputed
-    )[:, target_index]
-
-    total_contributions = np.zeros(feature_count)
-
-    total_baseline = 0.0
-    trajectory_count = 0
-
-    position = 0
-
-    for order in all_orders:
-
-        trajectory_length = feature_count + 1
-
-        trajectory_probabilities = all_probabilities[
-            position:position + trajectory_length
-        ]
-
-        position += trajectory_length
-
-        total_baseline += trajectory_probabilities[0]
-
-        changes = np.diff(trajectory_probabilities)
-
-        for step, feature_index in enumerate(order):
-
-            total_contributions[feature_index] += changes[step]
-
-        trajectory_count += 1
-
-    average_baseline = total_baseline / trajectory_count
-
-    average_contributions = (
-        total_contributions / trajectory_count
-    )
-
-    final_probability = model.predict_proba(
-        imputer.transform(patient_data[feature_names])
-    )[0][target_index]
-
-    attribution_df = pd.DataFrame({
-        "Feature": feature_names,
-        "Patient Value": [
-            float(patient_data.iloc[0][feature])
-            for feature in feature_names
-        ],
-        "Contribution": average_contributions * 100
-    })
-
-    attribution_df["Absolute Contribution"] = (
-        attribution_df["Contribution"].abs()
-    )
-
-    attribution_df = attribution_df.sort_values(
-        "Absolute Contribution",
-        ascending=False
-    ).reset_index(drop=True)
-
-    return (
-        attribution_df,
-        average_baseline * 100,
-        final_probability * 100,
-        target_class
-    )
-
-
-
-
-if result is not None and len(user_values) == len(feature_names):
-
-    try:
-
-        explanation_signature = (
-            input_signature,
-            len(X),
-            os.path.getmtime(DATASET_PATH)
-        )
-
-        if (
-            st.session_state.get("shap_explanation_signature")
-            != explanation_signature
-        ):
-
-            with st.spinner(
-                "Calculating feature contributions..."
-            ):
-
-                (
-                    attribution_df,
-                    baseline_probability,
-                    explained_probability,
-                    explained_class
-                ) = calculate_manual_shap(
-                    model=model,
-                    imputer=imputer,
-                    background_data=X,
-                    patient_data=input_data,
-                    feature_names=feature_names,
-                    number_of_permutations=15,
-                    number_of_background_rows=8
-                )
-
-                st.session_state["shap_attribution_df"] = (
-                    attribution_df
-                )
-
-                st.session_state["shap_baseline"] = (
-                    baseline_probability
-                )
-
-                st.session_state["shap_probability"] = (
-                    explained_probability
-                )
-
-                st.session_state["shap_class"] = explained_class
-
-                st.session_state["shap_explanation_signature"] = (
-                    explanation_signature
-                )
-
-        attribution_df = st.session_state["shap_attribution_df"]
-
-        baseline_probability = st.session_state["shap_baseline"]
-
-        explained_probability = st.session_state["shap_probability"]
-
-        explained_class = st.session_state["shap_class"]
-
-        st.markdown("### Prediction Explanation")
-
-        st.write(
-            f"**Explained class:** {explained_class}"
-        )
-
-        st.write(
-            f"**Baseline probability:** "
-            f"{baseline_probability:.2f}%"
-        )
-
-        st.write(
-            f"**Patient prediction probability:** "
-            f"{explained_probability:.2f}%"
-        )
-
-        st.caption(
-            "Baseline probability represents the average model "
-            "prediction across the sampled background patients."
-        )
-
-  
-
-        st.markdown("### Explore Individual Features")
-
-        selected_feature = st.selectbox(
-            "Select a feature to explore",
-            attribution_df["Feature"].tolist(),
-            key="shap_selected_feature"
-        )
-
-        selected_row = attribution_df[
-            attribution_df["Feature"] == selected_feature
-        ].iloc[0]
-
-        contribution = float(selected_row["Contribution"])
-
-        st.write(
-            f"**Selected feature:** {selected_feature}"
-        )
-
-        st.write(
-            f"**Patient input value:** "
-            f"{selected_row['Patient Value']:.3f}"
-        )
-
-        st.metric(
-            "Feature Contribution",
-            f"{contribution:+.2f} percentage points"
-        )
-
-        if contribution > 0:
-
-            st.success(
-                "This feature pushes the model's prediction "
-                "towards the explained class."
-            )
-
-        elif contribution < 0:
-
-            st.info(
-                "This feature pushes the model's prediction "
-                "away from the explained class."
-            )
-
-        else:
-
-            st.info(
-                "This feature has approximately zero contribution "
-                "in this explanation."
-            )
-
-
-        st.markdown("### Feature Contribution Graph")
-
-        number_of_features = st.slider(
-            "Number of features to display",
-            min_value=1,
-            max_value=len(feature_names),
-            value=min(10, len(feature_names)),
-            key="shap_feature_count"
-        )
-
-        graph_data = attribution_df.head(
-            number_of_features
-        ).sort_values("Contribution")
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-
-        bar_colors = [
-            "#16a34a" if value > 0 else "#dc2626"
-            for value in graph_data["Contribution"]
-        ]
-
-        ax.barh(
-            graph_data["Feature"],
-            graph_data["Contribution"],
-            color=bar_colors
-        )
-
-        ax.axvline(
-            x=0,
-            color="black",
-            linewidth=1
-        )
-
-        ax.set_xlabel(
-            "Contribution to probability (percentage points)"
-        )
-
-        ax.set_title(
-            "Manual Permutation-Based Feature Contributions"
-        )
-
-        plt.tight_layout()
-
-        st.pyplot(fig)
-        plt.close(fig)
-
-    
-
-        st.markdown("### Detailed Feature Contributions")
-
-        display_df = attribution_df[
-            [
-                "Feature",
-                "Patient Value",
-                "Contribution"
-            ]
-        ].copy()
-
-        display_df["Patient Value"] = (
-            display_df["Patient Value"].round(3)
-        )
-
-        display_df["Contribution"] = (
-            display_df["Contribution"].round(3)
-        )
-
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            hide_index=True
-        )
-
-  
-
-        positive_features = attribution_df[
-            attribution_df["Contribution"] > 0
-        ]
-
-        negative_features = attribution_df[
-            attribution_df["Contribution"] < 0
-        ]
-
-        st.markdown("### Explanation Summary")
-
-        st.write("**Features pushing towards the explained class:**")
-
-        if not positive_features.empty:
-
-            for _, row in positive_features.head(5).iterrows():
-
-                st.write(
-                    f"- {row['Feature']}: "
-                    f"+{row['Contribution']:.2f} percentage points"
-                )
-
-        else:
-            st.write("No positive contributions were identified.")
-
-        st.write("**Features pushing away from the explained class:**")
-
-        if not negative_features.empty:
-
-            for _, row in negative_features.head(5).iterrows():
-
-                st.write(
-                    f"- {row['Feature']}: "
-                    f"{row['Contribution']:.2f} percentage points"
-                )
-
-        else:
-            st.write("No negative contributions were identified.")
-
-        st.caption(
-            "Contributions are approximate and depend on the "
-            "background sample and feature permutations. "
-            "Correlated features can affect how contributions "
-            "are distributed."
-        )
-
-    except Exception as error:
-
-        st.error(
-            f"Unable to calculate feature explanations: {error}"
-        )
-
-else:
-
-    st.info(
-        "Enter patient information to view feature contributions."
-    )
-
-
-st.markdown("---")
-st.markdown("##  User Experience Feedback")
-
-st.write(
-    "Share your experience to help improve the application."
-)
-
-with st.form("usability_feedback_form"):
-
-    overall_rating = st.radio(
-        "How would you rate the application?",
-        ["Excellent", "Good", "Average", "Poor", "Very Poor"]
-    )
-
-    task_completion = st.radio(
-        "Could you complete a prediction?",
-        ["Yes", "Partially", "No"]
-    )
-
-    pain_point = st.selectbox(
-        "Did you experience any difficulty?",
-        [
-            "No difficulty",
-            "Input controls were confusing",
-            "Sliders were difficult to use",
-            "Prediction result was unclear",
-            "Confidence graph was confusing",
-            "Application was slow",
-            "Other"
-        ]
-    )
-
-    ease_rating = st.slider(
-        "Rate ease of use",
-        1,
-        5,
-        3
-    )
-
-    positive_feedback = st.text_area(
-        "What did you like?"
-    )
-
-    improvement_feedback = st.text_area(
-        "What should be improved?"
-    )
-
-    feedback_submit = st.form_submit_button(
-        "Submit Feedback"
-    )
-
-if feedback_submit:
-
-    feedback_file = os.path.join(
-        BASE_DIR,
-        "usability_feedback.csv"
-    )
-
-    feedback_record = {
-        "Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "Overall Rating": overall_rating,
-        "Task Completion": task_completion,
-        "Pain Point": pain_point,
-        "Ease Rating": ease_rating,
-        "Positive Feedback": positive_feedback,
-        "Improvement Suggestions": improvement_feedback
-    }
-
-    try:
-
-        pd.DataFrame([feedback_record]).to_csv(
-            feedback_file,
-            mode="a",
-            header=not os.path.exists(feedback_file),
-            index=False
-        )
-
-        st.success("Feedback saved successfully.")
-
-    except Exception as error:
-
-        st.error(f"Feedback saving error: {error}")
 
 
 
 
 st.markdown(
-    """
-    <div class="footer">
-        <p>Heart Disease Prediction System | Machine Learning Project</p>
-        <p>For educational purposes only. Not a medical diagnosis.</p>
-    </div>
-    """,
+    '<div class="section-heading">Prediction</div>',
     unsafe_allow_html=True
 )
+
+if "prediction_result" not in st.session_state:
+
+    st.session_state.prediction_result = None
+
+
+if st.button(
+    " Predict Heart Disease",
+    key="predict_button"
+):
+
+    errors, suggestions = validate_inputs(
+        patient_values,
+        feature_names,
+        feature_info
+    )
+
+    if errors:
+
+        st.session_state.prediction_result = None
+
+        st.error(
+            "Please correct the following input errors:"
+        )
+
+        for error in errors:
+            st.write( error)
+
+        for suggestion in suggestions:
+
+            st.markdown(
+                f'<div class="suggestion-card">'
+                f' {suggestion}'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+    else:
+
+        try:
+
+            input_df = pd.DataFrame(
+                [[
+                    patient_values[column]
+                    for column in feature_names
+                ]],
+                columns=feature_names
+            )
+
+            input_ready = imputer.transform(input_df)
+
+            prediction = model.predict(input_ready)[0]
+
+            probabilities = model.predict_proba(
+                input_ready
+            )[0]
+
+            class_probabilities = {
+                str(class_label): float(probability)
+                for class_label, probability in zip(
+                    model.classes_,
+                    probabilities
+                )
+            }
+
+            confidence = float(
+                np.max(probabilities)
+            ) * 100
+
+            feature_effects = calculate_feature_effects(
+                model,
+                input_df,
+                imputer,
+                feature_names,
+                feature_info
+            )
+
+            explanation = generate_explanation(
+                int(prediction),
+                confidence,
+                feature_effects
+            )
+
+            st.session_state.prediction_result = {
+                "prediction": int(prediction),
+                "confidence": confidence,
+                "probabilities": class_probabilities,
+                "explanation": explanation,
+                "feature_effects": feature_effects
+            }
+
+        except Exception as error:
+
+            st.session_state.prediction_result = None
+
+            st.error(
+                f"Prediction could not be completed: {error}"
+            )
+
+
+
+
+result = st.session_state.prediction_result
+
+if result is not None:
+
+    prediction = result["prediction"]
+
+    confidence = result["confidence"]
+
+    st.markdown(
+        '<div class="section-heading">Prediction Result</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown('<div class="result-card">', unsafe_allow_html=True)
+
+    if prediction == 1:
+
+        st.error(
+            "Positive Prediction: Heart Disease"
+        )
+
+    else:
+
+        st.success(
+            "Negative Prediction: No Heart Disease"
+        )
+
+    st.metric(
+        "Prediction Confidence",
+        f"{confidence:.2f}%"
+    )
+
+    st.progress(
+        confidence / 100
+    )
+
+    st.markdown("### Class Probabilities")
+
+    for class_label, probability in result[
+        "probabilities"
+    ].items():
+
+        st.write(
+            f"Class {class_label}: "
+            f"{probability * 100:.2f}%"
+        )
+
+        st.progress(probability)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+
+
+    st.markdown(
+        '<div class="section-heading">'
+        'Why Did the Model Make This Prediction?'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="explanation-card">',
+        unsafe_allow_html=True
+    )
+
+    st.write(result["explanation"])
+
+    st.markdown(
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+
+
+    st.markdown("### Important Feature Contributions")
+
+    st.caption(
+        "Estimated probability changes when each feature "
+        "is individually replaced with its typical dataset value."
+    )
+
+    for item in result["feature_effects"]:
+
+        feature = item["feature"]
+
+        effect = item["effect"]
+
+        if effect > 0.001:
+
+            message = (
+                f"{feature}: The current value increases "
+                f"the model's positive-class probability "
+                f"by approximately {effect * 100:.2f} "
+                f"percentage points compared with its "
+                f"typical value."
+            )
+
+        elif effect < -0.001:
+
+            message = (
+                f"{feature}: The current value decreases "
+                f"the model's positive-class probability "
+                f"by approximately {abs(effect) * 100:.2f} "
+                f"percentage points compared with its "
+                f"typical value."
+            )
+
+        else:
+
+            message = (
+                f"{feature}: Replacing this feature with "
+                f"its typical value produces very little "
+                f"change in the prediction probability."
+            )
+
+        st.write("•", message)
+
+
+
+    
+
+
+else:
+
+    st.info(
+        "Enter the patient information and click "
+        "'Predict Heart Disease' to see the prediction "
+        "and its explanation."
+    )
+
+
+
+
+st.markdown("""
+<div class="footer">
+
+     Heart Disease Prediction Using Machine Learning
+
+
+
+</div>
+""", unsafe_allow_html=True)
