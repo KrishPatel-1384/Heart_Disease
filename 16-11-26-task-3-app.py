@@ -196,27 +196,37 @@ def get_label(feature):
 
 
 
+
 @st.cache_resource
 def load_model():
 
+    # Find the folder containing this Python file
+    app_folder = Path(__file__).resolve().parent
+
+    # Check the dataset in the same folder as the app
     possible_files = [
-        
-        Path("/home/patel-krish/anaconda3/BrainyBeam/heart.csv"),
-        Path("heart_cleaned.csv")
+        app_folder / "heart.csv",
+        app_folder / "heart(2).csv",
+        app_folder / "heart_cleaned.csv"
     ]
 
     dataset_path = None
 
     for file_path in possible_files:
-        if file_path.exists():
+        if file_path.is_file():
             dataset_path = file_path
             break
 
     if dataset_path is None:
+        available_files = [
+            file.name for file in app_folder.iterdir()
+            if file.is_file()
+        ]
+
         raise FileNotFoundError(
             "Heart disease dataset not found. "
-            "Place heart(2).csv or heart.csv "
-            "in the same folder as app.py."
+            f"Expected heart.csv in: {app_folder}. "
+            f"Files found: {available_files}"
         )
 
     data = pd.read_csv(dataset_path)
@@ -229,9 +239,11 @@ def load_model():
 
     if "target" not in data.columns:
         raise ValueError(
-            "Dataset must contain a target column."
+            "Dataset must contain a 'target' column. "
+            f"Available columns: {list(data.columns)}"
         )
 
+    # Remove unnecessary index columns
     index_columns = [
         column for column in data.columns
         if column == "index" or column.startswith("unnamed:")
@@ -239,6 +251,7 @@ def load_model():
 
     data = data.drop(columns=index_columns)
 
+    # Clean dataset
     data = data.drop_duplicates()
     data = data.dropna(subset=["target"])
 
@@ -262,13 +275,11 @@ def load_model():
     X = X.dropna(axis=1, how="all")
 
     if X.empty:
-        raise ValueError(
-            "No valid feature columns were found."
-        )
+        raise ValueError("No valid feature columns were found.")
 
     if y.nunique() != 2:
         raise ValueError(
-            "This application requires a binary target."
+            "This application requires a binary target column."
         )
 
     if len(X) < 10:
@@ -276,10 +287,11 @@ def load_model():
             "Not enough valid records to train the model."
         )
 
+    # Handle missing values
     imputer = SimpleImputer(strategy="median")
-
     X_ready = imputer.fit_transform(X)
 
+    # Train prediction model
     model = RandomForestClassifier(
         n_estimators=150,
         max_depth=8,
@@ -289,6 +301,7 @@ def load_model():
 
     model.fit(X_ready, y)
 
+    # Store information for input validation
     feature_info = {}
 
     for column in X.columns:
