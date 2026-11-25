@@ -511,7 +511,7 @@ def calculate_feature_effects(
 
     for feature in feature_names:
 
-        changed_df = input_df.copy()
+        changed_df = input_df.astype(float).copy()
 
         info = feature_info[feature]
 
@@ -598,13 +598,70 @@ st.markdown(
 
 patient_values = {}
 
+
 for feature in feature_names:
 
     info = feature_info[feature]
-
     label = get_label(feature)
-
     unique_values = info["unique"]
+
+    if feature == "sex":
+
+        sex_option = st.selectbox(
+            "Sex",
+            options=["Male", "Female"],
+            key="input_sex"
+        )
+
+        # Dataset encoding: Male = 1, Female = 0
+        patient_values[feature] = (
+            1 if sex_option == "Male" else 0
+        )
+
+    elif len(unique_values) <= 10:
+
+        options = unique_values
+        default_value = info["mode"]
+
+        if default_value not in options:
+            default_value = options[0]
+
+        patient_values[feature] = st.selectbox(
+            label,
+            options=options,
+            index=options.index(default_value),
+            key=f"input_{feature}"
+        )
+
+    else:
+
+        minimum = info["minimum"]
+        maximum = info["maximum"]
+        default_value = info["median"]
+
+        if info["integer"]:
+
+            patient_values[feature] = st.number_input(
+                label,
+                min_value=int(np.ceil(minimum)),
+                max_value=int(np.floor(maximum)),
+                value=int(round(default_value)),
+                step=1,
+                key=f"input_{feature}"
+            )
+
+        else:
+
+            patient_values[feature] = st.number_input(
+                label,
+                min_value=float(minimum),
+                max_value=float(maximum),
+                value=float(default_value),
+                step=0.1,
+                format="%.2f",
+                key=f"input_{feature}"
+            )
+
 
     if len(unique_values) <= 10:
 
@@ -699,12 +756,13 @@ if st.button(
 
         try:
 
-            input_df = pd.DataFrame(
+          input_df = pd.DataFrame(
                 [[
                     patient_values[column]
                     for column in feature_names
                 ]],
-                columns=feature_names
+                columns=feature_names,
+                dtype=float
             )
 
             input_ready = imputer.transform(input_df)
